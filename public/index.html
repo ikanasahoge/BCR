@@ -726,7 +726,11 @@ function triggerAnnouncement() {
 }
 
 // ── AI Announcement ────────────────────────────────────────────────
+let isGenerating = false;
+
 async function generateAnnouncement(track) {
+  if (isGenerating) return;
+  isGenerating = true;
   const next = nextTrackData;
   const timeCtx = getTimeContext();
   const segmentType = pickSegmentType(!!next);
@@ -787,6 +791,8 @@ Vary your sentence length. Sometimes a short punchy opener, sometimes he eases i
     showAnnouncement(fallback);
     speakText(fallback);
     setDJSpeaking(false);
+  } finally {
+    isGenerating = false;
   }
 }
 
