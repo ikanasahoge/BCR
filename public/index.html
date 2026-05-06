@@ -763,21 +763,14 @@ Vary your sentence length. Sometimes a short punchy opener, sometimes he eases i
   showAnnouncement('', true);
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch('/api/announce', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'anthropic-dangerous-client-side-api-key-flag': 'true',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 220,
-        messages: [{ role: 'user', content: prompt }]
-      })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt })
     });
 
     const data = await res.json();
-    const text = data.content?.[0]?.text?.trim();
+    const text = data.text;
 
     if (text) {
       recentAnnouncements.push(text);
