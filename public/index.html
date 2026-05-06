@@ -502,13 +502,37 @@ let nextTrackData = null;
 let progressMs = 0;
 let lastPollTime = 0;
 
-// Short segments play over music, long segments pause Spotify
-const SHORT_SEGMENTS = ['vibe_set', 'artist_comment', 'callback'];
-const LONG_SEGMENTS  = ['song_intro', 'city_moment', 'next_song_tease', 'station_id', 'time_of_day'];
+// Short segments duck volume and play over intro, long segments pause Spotify
+const SHORT_SEGMENTS = ['vibe_set', 'artist_comment', 'callback', 'song_intro', 'station_id'];
+const LONG_SEGMENTS  = ['city_moment', 'next_song_tease', 'time_of_day'];
 
 // Only announce every 3-4 songs
 let songsSinceAnnouncement = 0;
 let nextAnnouncementThreshold = 3 + Math.floor(Math.random() * 2);
+
+// Long segment counter — full story every ~10 songs
+let songsSinceLongSegment = 0;
+let nextLongSegmentThreshold = 9 + Math.floor(Math.random() * 3);
+
+// Spotify volume ducking via Web Playback (we set volume on the player)
+async function spotifySetVolume(pct) {
+  if (!accessToken) return;
+  await fetch(`https://api.spotify.com/v1/me/player/volume?volume_percent=${pct}`, {
+    method: 'PUT', headers: { Authorization: `Bearer ${accessToken}` }
+  }).catch(() => {});
+}
+
+// Smooth volume transition
+async function duckVolume(fromPct, toPct, durationMs) {
+  const steps = 20;
+  const stepMs = durationMs / steps;
+  const diff = toPct - fromPct;
+  for (let i = 1; i <= steps; i++) {
+    const vol = Math.round(fromPct + (diff * i / steps));
+    await spotifySetVolume(vol);
+    await new Promise(r => setTimeout(r, stepMs));
+  }
+}
 
 // Yorick's memory — keeps recent lines so he never repeats himself
 const recentAnnouncements = [];
@@ -538,13 +562,15 @@ function getTimeContext() {
   return { period: 'late night', energy: 'quiet city hours, intimate and unhurried' };
 }
 
-function pickSegmentType(hasNextTrack) {
-  const available = SEGMENT_TYPES.filter(t => {
+function pickSegmentType(hasNextTrack, forceLong = false) {
+  const pool = forceLong ? LONG_SEGMENTS : SEGMENT_TYPES;
+  const available = pool.filter(t => {
     if (t === 'next_song_tease' && !hasNextTrack) return false;
     if (t === 'callback' && recentAnnouncements.length < 2) return false;
     return !segmentHistory.slice(-3).includes(t);
   });
-  const pick = available[Math.floor(Math.random() * available.length)];
+  const list = available.length > 0 ? available : pool;
+  const pick = list[Math.floor(Math.random() * list.length)];
   segmentHistory.push(pick);
   if (segmentHistory.length > 10) segmentHistory.shift();
   return pick;
@@ -676,14 +702,21 @@ async function pollNowPlaying() {
       if (lastAnnouncedTrackId !== track.id) {
         lastAnnouncedTrackId = track.id;
         songsSinceAnnouncement++;
+        songsSinceLongSegment++;
 
         const shouldAnnounce = songsSinceAnnouncement >= nextAnnouncementThreshold;
 
         if (shouldAnnounce) {
           songsSinceAnnouncement = 0;
           nextAnnouncementThreshold = 3 + Math.floor(Math.random() * 2);
-          // Small delay then trigger — jingle and announcement handle their own pause/resume
-          setTimeout(() => runSegment(track), 800);
+
+          const shouldBeLong = songsSinceLongSegment >= nextLongSegmentThreshold;
+          if (shouldBeLong) {
+            songsSinceLongSegment = 0;
+            nextLongSegmentThreshold = 9 + Math.floor(Math.random() * 3);
+          }
+
+          setTimeout(() => runSegment(track, shouldBeLong), 800);
         }
       }
     }
@@ -737,52 +770,57 @@ async function spotifyResume() {
 
 async function triggerAnnouncement() {
   if (!currentTrack) return;
-  runSegment(currentTrack);
+  runSegment(currentTrack, false);
 }
 
-// Generate text first, then pause Spotify to speak
-async function runSegment(track) {
+// Main segment runner — short = duck volume, long = pause Spotify
+async function runSegment(track, forceLong = false) {
   if (isGenerating) { console.log('BCR: already generating, skipping'); return; }
 
-  console.log('BCR: runSegment started for', track.name);
-
-  // Play jingle first if due (it handles its own pause/resume)
+  // Jingle always goes first if due
   await maybePlayJingle();
 
-  // Generate the announcement text silently
-  console.log('BCR: fetching announcement...');
-  const text = await fetchAnnouncement(track);
-  console.log('BCR: got text:', text);
-  if (!text) { console.log('BCR: no text returned, aborting'); return; }
-
-  // Now pause Spotify, speak, resume
-  console.log('BCR: pausing Spotify...');
-  await spotifyPause();
-  await new Promise(r => setTimeout(r, 300));
+  // Fetch announcement text in background while song plays
+  const text = await fetchAnnouncement(track, forceLong);
+  if (!text) return;
 
   recentAnnouncements.push(text);
   if (recentAnnouncements.length > MAX_MEMORY) recentAnnouncements.shift();
-  showAnnouncement(text);
-  setDJSpeaking(true);
-  console.log('BCR: speaking...');
-  await speakText(text);
-  console.log('BCR: done speaking, resuming Spotify');
 
-  await new Promise(r => setTimeout(r, 400));
-  await spotifyResume();
+  const segType = segmentHistory[segmentHistory.length - 1];
+  const isLong = forceLong || LONG_SEGMENTS.includes(segType);
+
+  if (isLong) {
+    // Long segment: pause Spotify, speak, resume
+    await spotifyPause();
+    await new Promise(r => setTimeout(r, 300));
+    showAnnouncement(text);
+    setDJSpeaking(true);
+    await speakText(text);
+    await new Promise(r => setTimeout(r, 400));
+    await spotifyResume();
+  } else {
+    // Short segment: duck volume over 1.5s, speak, restore over 1.5s
+    showAnnouncement(text);
+    setDJSpeaking(true);
+    duckVolume(100, 50, 1500); // start fading down, don't await
+    await new Promise(r => setTimeout(r, 1200)); // let duck start before speaking
+    await speakText(text);
+    await duckVolume(50, 100, 1500); // fade back up
+  }
 }
 
 // ── AI Announcement ────────────────────────────────────────────────
 let isGenerating = false;
 
-async function fetchAnnouncement(track) {
+async function fetchAnnouncement(track, forceLong = false) {
   if (isGenerating) return null;
   isGenerating = true;
 
   const next = nextTrackData;
   const timeCtx = getTimeContext();
-  const segmentType = pickSegmentType(!!next);
-  const isLong = LONG_SEGMENTS.includes(segmentType);
+  const segmentType = pickSegmentType(!!next, forceLong);
+  const isLong = forceLong || LONG_SEGMENTS.includes(segmentType);
 
   const historyNote = recentAnnouncements.length > 0
     ? `Your last ${recentAnnouncements.length} announcement(s) were:\n${recentAnnouncements.map((a, i) => `${i + 1}. "${a}"`).join('\n')}\nDo NOT repeat similar phrasing, openers, or ideas from any of these.`
@@ -803,6 +841,10 @@ async function fetchAnnouncement(track) {
     ? `End with a smooth, natural sign-off that leads back into the music. Something like "Anyway, here's ${track.name} — enjoy." or "Alright, enough from me — here's the next one." or a thematic line that ties into what you just said. Never a hard stop.`
     : '';
 
+  const lengthNote = isLong
+    ? `Write 3–4 sentences. Take your time, let it breathe.`
+    : `Write 1–2 sentences MAXIMUM. Short, punchy, natural. This plays over the song intro so keep it tight.`;
+
   const prompt = `You are Yorick de Boer, host of Big City Radio, 94.7 FM. Late twenties. Did stand-up comedy as a teen, then TV presenting, now radio — and he genuinely loves it here. Quick, warm, occasionally self-deprecating. Always sounds like he's having a good time without trying too hard. Never sounds like he's reading from a script.
 
 Currently playing: ${track.name} by ${track.artists.map(a => a.name).join(', ')}.
@@ -814,9 +856,9 @@ ${signOffNote}
 
 ${historyNote}
 
-Write 2–4 sentences in Yorick's spoken voice. Natural rhythm, no bullet points, no stage directions, no asterisks, no quotation marks around song titles. Just what he'd say into the mic.
+${lengthNote} Natural rhythm, no bullet points, no stage directions, no asterisks, no quotation marks around song titles. Just what he'd say into the mic.
 
-Vary your sentence length. Sometimes a short punchy opener, sometimes he eases in slowly. His comedy background means he occasionally lands a dry one-liner — but only when it comes naturally, never forced.`;
+His comedy background means he occasionally lands a dry one-liner — but only when it comes naturally, never forced.`;
 
   showAnnouncement('', true);
 
