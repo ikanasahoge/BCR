@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Big City Radio</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Courier+Prime:ital@0;1&display=swap');
+
+  :root {
+    --bg: #0d0d0f;
+    --surface: #141418;
+    --surface2: #1c1c22;
+    --border: #2a2a35;
+    --accent: #f5c842;
+    --accent2: #e8834a;
+    --text: #e8e8f0;
+    --muted: #6b6b80;
+    --live: #ff4757;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 20% 80%, rgba(245,200,66,0.04) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 50% at 80% 20%, rgba(232,131,74,0.05) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 680px;
+    padding: 24px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .station-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 16px;
+  }
+
+  .station-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 42px;
+    letter-spacing: 3px;
+    color: var(--accent);
+    line-height: 1;
+    text-shadow: 0 0 30px rgba(245,200,66,0.2);
+  }
+
+  .station-freq {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    color: var(--muted);
+    letter-spacing: 2px;
+  }
+
+  .live-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    color: var(--live);
+    text-transform: uppercase;
+  }
+
+  .live-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--live);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  .now-playing-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 24px;
+    margin-bottom: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .now-playing-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--accent);
+  }
+
+  .np-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  .np-track {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    letter-spacing: 1px;
+    color: var(--text);
+    line-height: 1.1;
+    margin-bottom: 4px;
+  }
+
+  .np-artist {
+    font-size: 14px;
+    color: var(--accent2);
+    font-weight: 300;
+  }
+
+  .progress-bar {
+    margin-top: 18px;
+    height: 2px;
+    background: var(--border);
+    border-radius: 1px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 1px;
+    width: 0%;
+  }
+
+  .time-row {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'Courier Prime', monospace;
+  }
+
+  .announcement-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+    min-height: 90px;
+  }
+
+  .dj-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .dj-speaking { display: flex; gap: 3px; align-items: center; height: 12px; }
+  .dj-speaking span {
+    display: block; width: 3px;
+    background: var(--accent);
+    border-radius: 2px;
+    animation: wave 0.8s ease-in-out infinite;
+  }
+  .dj-speaking span:nth-child(1) { height: 6px; animation-delay: 0s; }
+  .dj-speaking span:nth-child(2) { height: 10px; animation-delay: 0.1s; }
+  .dj-speaking span:nth-child(3) { height: 8px; animation-delay: 0.2s; }
+  .dj-speaking span:nth-child(4) { height: 12px; animation-delay: 0.3s; }
+  .dj-speaking span:nth-child(5) { height: 6px; animation-delay: 0.4s; }
+
+  @keyframes wave {
+    0%, 100% { transform: scaleY(1); }
+    50% { transform: scaleY(0.4); }
+  }
+
+  .dj-speaking.hidden { display: none; }
+
+  .announcement-text {
+    font-family: 'Courier Prime', monospace;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text);
+    font-style: italic;
+    min-height: 48px;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+  }
+
+  .announcement-text.visible { opacity: 1; }
+
+  .announcement-text.typing::after {
+    content: '▋';
+    animation: blink 0.7s step-end infinite;
+    color: var(--accent);
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  .next-card {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 14px 24px;
+    margin-bottom: 20px;
+  }
+
+  .next-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  .next-track { font-size: 14px; font-weight: 500; color: var(--text); }
+  .next-artist { font-size: 12px; color: var(--muted); }
+
+  .controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+
+  .btn {
+    padding: 10px 22px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: transparent;
+    color: var(--muted);
+  }
+
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .btn-primary {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+  .btn-primary:hover { background: #f0bb20; color: var(--bg); border-color: #f0bb20; }
+
+  .btn-danger { border-color: var(--live); color: var(--live); }
+  .btn-danger:hover { background: rgba(255,71,87,0.1); }
+
+  .setup-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 28px;
+    margin-bottom: 20px;
+  }
+
+  .setup-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    letter-spacing: 2px;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+
+  .setup-desc {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 20px;
+    line-height: 1.6;
+  }
+
+  .setup-field { margin-bottom: 14px; }
+
+  .setup-field label {
+    display: block;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  .setup-field input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'Courier Prime', monospace;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .setup-field input:focus { border-color: var(--accent); }
+  .setup-field input::placeholder { color: var(--muted); }
+
+  .setup-hint {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 6px;
+    line-height: 1.7;
+  }
+
+  .setup-hint a { color: var(--accent2); text-decoration: none; }
+  .setup-hint a:hover { text-decoration: underline; }
+
+  .setup-hint strong { color: var(--text); font-weight: 500; }
+
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 16px;
+    font-family: 'Courier Prime', monospace;
+  }
+
+  .status-indicator {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+  }
+  .status-indicator.ok { background: #2ed573; }
+  .status-indicator.warn { background: var(--accent); }
+  .status-indicator.err { background: var(--live); }
+
+  .voice-row { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+  .voice-label { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 80px; height: 2px;
+    background: var(--border);
+    outline: none; border-radius: 1px;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+  }
+
+  .ticker-wrap {
+    overflow: hidden;
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+    margin-top: 4px;
+  }
+
+  .ticker {
+    display: inline-block;
+    white-space: nowrap;
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    animation: ticker 30s linear infinite;
+  }
+
+  @keyframes ticker {
+    0% { transform: translateX(100vw); }
+    100% { transform: translateX(-100%); }
+  }
+
+  .ticker-sep { color: var(--accent); margin: 0 16px; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="station-header">
+    <div>
+      <div class="station-name">Big City Radio</div>
+      <div class="station-freq">94.7 FM — HOSTED BY YORICK DE BOER</div>
+    </div>
+    <div class="live-badge">
+      <div class="live-dot"></div>
+      ON AIR
+    </div>
+  </div>
+
+  <!-- Setup -->
+  <div class="setup-panel" id="setupPanel">
+    <div class="setup-title">Connect to Spotify</div>
+    <div class="setup-desc">
+      You'll need a free Spotify Developer app to let Big City Radio read your playback. Takes about 2 minutes to set up.
+    </div>
+
+    <div class="setup-field">
+      <label>Spotify Client ID</label>
+      <input type="text" id="clientId" placeholder="Paste your Client ID here" />
+      <div class="setup-hint">
+        1. Go to <a href="https://developer.spotify.com/dashboard" target="_blank">developer.spotify.com/dashboard</a> and log in<br>
+        2. Click <strong>Create App</strong> — name it anything (e.g. "Big City Radio")<br>
+        3. Under <strong>Redirect URIs</strong>, paste the full address of this HTML file on your computer<br>
+        &nbsp;&nbsp;&nbsp;(It looks like: <strong>file:///C:/Users/YourName/Downloads/big-city-radio.html</strong>)<br>
+        4. Tick <strong>Web API</strong> and save. Your <strong>Client ID</strong> is on the app's main page.
+      </div>
+    </div>
+
+    <div class="setup-field">
+      <label>Redirect URI</label>
+      <input type="text" id="redirectUri" placeholder="Auto-filled below — copy this into Spotify" />
+      <div class="setup-hint">This is auto-filled with this page's address. Copy it exactly into your Spotify app's Redirect URI field.</div>
+    </div>
+
+    <div style="display:flex; gap:12px; margin-top:20px; flex-wrap:wrap;">
+      <button class="btn btn-primary" id="connectBtn">Connect Spotify</button>
+      <button class="btn" onclick="loadSaved()">Load Saved</button>
+    </div>
+
+    <div class="status-bar">
+      <div class="status-indicator warn" id="setupStatusDot"></div>
+      <span id="setupStatusText">Not connected</span>
+    </div>
+  </div>
+
+  <!-- Radio UI -->
+  <div id="radioUI" class="hidden">
+
+    <div class="now-playing-card">
+      <div class="np-label">Now Playing</div>
+      <div class="np-track" id="trackName">—</div>
+      <div class="np-artist" id="artistName">Waiting for track...</div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <div class="time-row">
+        <span id="timeElapsed">0:00</span>
+        <span id="timeDuration">0:00</span>
+      </div>
+    </div>
+
+    <div class="announcement-card">
+      <div class="dj-label">
+        Yorick de Boer
+        <div class="dj-speaking hidden" id="djSpeaking">
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+      <div class="announcement-text" id="announcementText">Tuning in to Big City Radio...</div>
+    </div>
+
+    <div class="next-card">
+      <div class="next-label">Up Next</div>
+      <div class="next-track" id="nextTrack">—</div>
+      <div class="next-artist" id="nextArtist"></div>
+    </div>
+
+    <div class="controls">
+      <button class="btn btn-primary" onclick="triggerAnnouncement()">Announce Next Song</button>
+      <button class="btn" onclick="skipSpeech()">Skip Voice</button>
+      <button class="btn btn-danger" onclick="disconnect()">Disconnect</button>
+      <div class="voice-row">
+        <span class="voice-label">Voice</span>
+        <input type="range" id="voiceVolume" min="0" max="1" step="0.05" value="0.85">
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <div class="status-indicator ok" id="statusDot"></div>
+      <span id="statusText">Connected</span>
+    </div>
+  </div>
+
+  <div class="ticker-wrap">
+    <span class="ticker">
+      BIG CITY RADIO 94.7 FM
+      <span class="ticker-sep">◆</span>
+      YOUR CITY, YOUR SOUND
+      <span class="ticker-sep">◆</span>
+      HOSTED BY YORICK DE BOER
+      <span class="ticker-sep">◆</span>
+      TUNE IN EVERY DAY
+      <span class="ticker-sep">◆</span>
+      BIG CITY RADIO 94.7 FM
+      <span class="ticker-sep">◆</span>
+      REQUESTS OPEN
+      <span class="ticker-sep">◆</span>
+    </span>
+  </div>
+
+</div>
+<script>
+let accessToken = null;
+let pollInterval = null;
+let smoothInterval = null;
+let lastTrackId = null;
+let lastAnnouncedTrackId = null;
+let currentTrack = null;
+let nextTrackData = null;
+let announcementCount = 0;
+let lastWeatherTime = 0;
+let progressMs = 0;
+let lastPollTime = 0;
+
+const WEATHER_LINES = [
+  "Looks like it's gonna be a clear one out there today, Big City.",
+  "Got word from downtown — mild breeze, perfect weather for an open window.",
+  "Skies are holding up. Good day to be alive in the city.",
+  "A little overcast this afternoon — nothing wrong with a cozy one.",
+  "Word is rain's rolling in tonight, so enjoy the dry while it lasts.",
+  "Sunny with a side of gorgeous out there. Classic Big City.",
+  "Bit of a chill in the air this morning. Good excuse to stay in with the radio on.",
+];
+
+const STATION_IDS = [
+  "You're tuned into Big City Radio, 94.7 FM.",
+  "Big City Radio — keeping the city moving.",
+  "This is 94.7, Big City Radio.",
+  "You're with Yorick on Big City Radio.",
+  "94.7 FM — your sound, your city.",
+];
+
+const FILLERS = [
+  "Alright, here we go.",
+  "Love this one. Perfect timing.",
+  "Don't touch that dial.",
+  "Stick around — great block coming up.",
+  "That one never gets old.",
+  "Keep the energy going.",
+  "Big City's wide awake. Let's keep it moving.",
+];
+
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('redirectUri').value = window.location.href.split('#')[0].split('?')[0];
+  document.getElementById('connectBtn').addEventListener('click', startAuth);
+  loadSaved();
+  checkHashForToken();
+});
+
+function saveSaved() {
+  localStorage.setItem('bcr_clientId', document.getElementById('clientId').value.trim());
+  localStorage.setItem('bcr_redirectUri', document.getElementById('redirectUri').value.trim());
+}
+
+function loadSaved() {
+  const cid = localStorage.getItem('bcr_clientId');
+  const ruri = localStorage.getItem('bcr_redirectUri');
+  if (cid) document.getElementById('clientId').value = cid;
+  if (ruri) document.getElementById('redirectUri').value = ruri;
+  else document.getElementById('redirectUri').value = window.location.href.split('#')[0].split('?')[0];
+}
+
+function startAuth() {
+  const clientId = document.getElementById('clientId').value.trim();
+  const redirectUri = document.getElementById('redirectUri').value.trim();
+  if (!clientId) { setSetupStatus('err', 'Please enter your Spotify Client ID.'); return; }
+  saveSaved();
+
+  const state = Math.random().toString(36).slice(2);
+  sessionStorage.setItem('spotify_state', state);
+
+  const params = new URLSearchParams({
+    response_type: 'token',
+    client_id: clientId,
+    scope: 'user-read-currently-playing user-read-playback-state',
+    redirect_uri: redirectUri,
+    state,
+  });
+
+  window.location.href = 'https://accounts.spotify.com/authorize?' + params.toString();
+}
+
+function checkHashForToken() {
+  const hash = window.location.hash.substring(1);
+  const params = new URLSearchParams(hash);
+  const token = params.get('access_token');
+  if (token) {
+    accessToken = token;
+    history.replaceState(null, '', window.location.pathname);
+    startRadio();
+  }
+}
+
+function startRadio() {
+  document.getElementById('setupPanel').classList.add('hidden');
+  document.getElementById('radioUI').classList.remove('hidden');
+  setStatus('ok', 'Connected — tuning in...');
+  pollNowPlaying();
+  pollInterval = setInterval(pollNowPlaying, 5000);
+  smoothInterval = setInterval(tickProgress, 500);
+}
+
+function disconnect() {
+  clearInterval(pollInterval);
+  clearInterval(smoothInterval);
+  accessToken = null;
+  lastTrackId = null;
+  lastAnnouncedTrackId = null;
+  document.getElementById('radioUI').classList.add('hidden');
+  document.getElementById('setupPanel').classList.remove('hidden');
+  setSetupStatus('warn', 'Disconnected.');
+}
+
+async function pollNowPlaying() {
+  if (!accessToken) return;
+  try {
+    const res = await fetch('https://api.spotify.com/v1/me/player', {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+
+    if (res.status === 204) { setStatus('warn', 'Nothing playing right now.'); return; }
+    if (res.status === 401) {
+      setStatus('err', 'Session expired — please reconnect.');
+      clearInterval(pollInterval); clearInterval(smoothInterval);
+      return;
+    }
+    if (!res.ok) { setStatus('err', 'Spotify error ' + res.status); return; }
+
+    const data = await res.json();
+    if (!data || !data.item) return;
+
+    const track = data.item;
+    progressMs = data.progress_ms || 0;
+    lastPollTime = Date.now();
+    currentTrack = track;
+
+    document.getElementById('trackName').textContent = track.name;
+    document.getElementById('artistName').textContent = track.artists.map(a => a.name).join(', ');
+    document.getElementById('timeDuration').textContent = msToTime(track.duration_ms);
+    setStatus('ok', 'Live');
+
+    fetchQueue();
+
+    if (track.id !== lastTrackId) {
+      lastTrackId = track.id;
+      if (lastAnnouncedTrackId !== track.id) {
+        lastAnnouncedTrackId = track.id;
+        setTimeout(() => generateAnnouncement(track), 900);
+      }
+    }
+  } catch(e) {
+    setStatus('err', 'Could not reach Spotify.');
+  }
+}
+
+function tickProgress() {
+  if (!currentTrack || !lastPollTime) return;
+  const elapsed = progressMs + (Date.now() - lastPollTime);
+  const pct = Math.min((elapsed / currentTrack.duration_ms) * 100, 100);
+  document.getElementById('progressFill').style.width = pct.toFixed(2) + '%';
+  document.getElementById('timeElapsed').textContent = msToTime(elapsed);
+}
+
+async function fetchQueue() {
+  try {
+    const res = await fetch('https://api.spotify.com/v1/me/player/queue', {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const next = data.queue && data.queue[0];
+    if (next) {
+      nextTrackData = next;
+      document.getElementById('nextTrack').textContent = next.name;
+      document.getElementById('nextArtist').textContent = next.artists.map(a => a.name).join(', ');
+    } else {
+      nextTrackData = null;
+      document.getElementById('nextTrack').textContent = '—';
+      document.getElementById('nextArtist').textContent = '';
+    }
+  } catch(e) {}
+}
+
+function triggerAnnouncement() {
+  if (currentTrack) generateAnnouncement(currentTrack);
+}
+
+async function generateAnnouncement(track) {
+  announcementCount++;
+  const shouldWeather = announcementCount % 5 === 0 || (Date.now() - lastWeatherTime > 600000 && announcementCount > 1);
+  const next = nextTrackData;
+  const nextLine = next ? `The next song in the queue is "${next.name}" by ${next.artists.map(a => a.name).join(', ')}.` : '';
+  const weatherHint = shouldWeather
+    ? `Casually drop in a brief city/weather observation somewhere natural. Example tone (don't copy verbatim): "${WEATHER_LINES[Math.floor(Math.random() * WEATHER_LINES.length)]}"`
+    : '';
+  const stationIdHint = announcementCount % 3 === 0
+    ? `Somewhere natural, include the station name. Example: "${STATION_IDS[Math.floor(Math.random() * STATION_IDS.length)]}"`
+    : '';
+  const fillerHint = announcementCount % 4 === 0
+    ? `Open with something casual like: "${FILLERS[Math.floor(Math.random() * FILLERS.length)]}"`
+    : '';
+
+  const prompt = `You are Yorick de Boer, the warm and laid-back host of Big City Radio, 94.7 FM — the most popular cheerful pop station in Big City.
+
+Currently playing: "${track.name}" by ${track.artists.map(a => a.name).join(', ')}.
+${nextLine}
+
+Write a short radio announcement (2–4 sentences) in Yorick's voice. He's natural, confident, occasionally witty but never try-hard. He sounds like a real radio host who's been doing this for years.
+
+${weatherHint}
+${stationIdHint}
+${fillerHint}
+
+Rules:
+- Vary the style each time. Sometimes comment on the song or artist. Sometimes just set the vibe. Sometimes do a city moment. Not every announcement needs the song title.
+- Do NOT use quotation marks around song titles.
+- Do NOT start with "Hey" every single time. Vary your openers significantly.
+- Do NOT sound like a promotional ad or an AI assistant.
+- Write only the spoken words. No labels, no stage directions, no asterisks.`;
+
+  setDJSpeaking(true);
+  showAnnouncement('', true);
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'anthropic-dangerous-client-side-api-key-flag': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 200,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await res.json();
+    const text = data.content?.[0]?.text?.trim();
+
+    if (text) {
+      if (shouldWeather) lastWeatherTime = Date.now();
+      showAnnouncement(text);
+      speakText(text);
+    } else {
+      const fallback = "Big City Radio — keeping the city moving.";
+      showAnnouncement(fallback);
+      speakText(fallback);
+    }
+  } catch(e) {
+    const fallback = "Stay tuned — Big City Radio, 94.7 FM.";
+    showAnnouncement(fallback);
+    speakText(fallback);
+    setDJSpeaking(false);
+  }
+}
+
+function speakText(text) {
+  if (!('speechSynthesis' in window)) { setDJSpeaking(false); return; }
+  window.speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.rate = 0.95;
+  utter.pitch = 0.88;
+  utter.volume = parseFloat(document.getElementById('voiceVolume').value);
+
+  const voices = window.speechSynthesis.getVoices();
+  const preferred = voices.find(v =>
+    v.lang.startsWith('en') &&
+    (v.name.includes('Daniel') || v.name.includes('David') || v.name.includes('Tom') ||
+     v.name.includes('Alex') || v.name.includes('Male') || v.name.includes('Guy'))
+  ) || voices.find(v => v.lang.startsWith('en-'));
+  if (preferred) utter.voice = preferred;
+
+  utter.onend = () => {
+    setDJSpeaking(false);
+    document.getElementById('announcementText').classList.remove('typing');
+  };
+  utter.onerror = () => setDJSpeaking(false);
+  window.speechSynthesis.speak(utter);
+}
+
+function skipSpeech() {
+  window.speechSynthesis && window.speechSynthesis.cancel();
+  setDJSpeaking(false);
+}
+
+function showAnnouncement(text, loading = false) {
+  const el = document.getElementById('announcementText');
+  el.classList.remove('visible', 'typing');
+  el.textContent = text;
+  if (loading) {
+    el.classList.add('visible', 'typing');
+  } else {
+    requestAnimationFrame(() => el.classList.add('visible'));
+  }
+}
+
+function setDJSpeaking(on) {
+  document.getElementById('djSpeaking').classList.toggle('hidden', !on);
+}
+
+function setStatus(type, msg) {
+  document.getElementById('statusDot').className = 'status-indicator ' + type;
+  document.getElementById('statusText').textContent = msg;
+}
+
+function setSetupStatus(type, msg) {
+  document.getElementById('setupStatusDot').className = 'status-indicator ' + type;
+  document.getElementById('setupStatusText').textContent = msg;
+}
+
+function msToTime(ms) {
+  const s = Math.floor((ms || 0) / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+</script>
+</body>
+</html>
