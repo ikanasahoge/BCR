@@ -502,6 +502,14 @@ let nextTrackData = null;
 let progressMs = 0;
 let lastPollTime = 0;
 
+// Short segments play over music, long segments pause Spotify
+const SHORT_SEGMENTS = ['vibe_set', 'artist_comment', 'callback'];
+const LONG_SEGMENTS  = ['song_intro', 'city_moment', 'next_song_tease', 'station_id', 'time_of_day'];
+
+// Only announce every 3-4 songs
+let songsSinceAnnouncement = 0;
+let nextAnnouncementThreshold = 3 + Math.floor(Math.random() * 2);
+
 // Yorick's memory — keeps recent lines so he never repeats himself
 const recentAnnouncements = [];
 const MAX_MEMORY = 6;
@@ -663,14 +671,6 @@ async function pollNowPlaying() {
 
     fetchQueue();
 
-// Short segments play over music, long segments pause Spotify
-const SHORT_SEGMENTS = ['vibe_set', 'artist_comment', 'callback'];
-const LONG_SEGMENTS  = ['song_intro', 'city_moment', 'next_song_tease', 'station_id', 'time_of_day'];
-
-// Only announce every 3-4 songs
-let songsSinceAnnouncement = 0;
-let nextAnnouncementThreshold = 3 + Math.floor(Math.random() * 2); // 3 or 4
-
     if (track.id !== lastTrackId) {
       lastTrackId = track.id;
       if (lastAnnouncedTrackId !== track.id) {
@@ -742,16 +742,21 @@ async function triggerAnnouncement() {
 
 // Generate text first, then pause Spotify to speak
 async function runSegment(track) {
-  if (isGenerating) return;
+  if (isGenerating) { console.log('BCR: already generating, skipping'); return; }
+
+  console.log('BCR: runSegment started for', track.name);
 
   // Play jingle first if due (it handles its own pause/resume)
   await maybePlayJingle();
 
   // Generate the announcement text silently
+  console.log('BCR: fetching announcement...');
   const text = await fetchAnnouncement(track);
-  if (!text) return;
+  console.log('BCR: got text:', text);
+  if (!text) { console.log('BCR: no text returned, aborting'); return; }
 
   // Now pause Spotify, speak, resume
+  console.log('BCR: pausing Spotify...');
   await spotifyPause();
   await new Promise(r => setTimeout(r, 300));
 
@@ -759,7 +764,9 @@ async function runSegment(track) {
   if (recentAnnouncements.length > MAX_MEMORY) recentAnnouncements.shift();
   showAnnouncement(text);
   setDJSpeaking(true);
+  console.log('BCR: speaking...');
   await speakText(text);
+  console.log('BCR: done speaking, resuming Spotify');
 
   await new Promise(r => setTimeout(r, 400));
   await spotifyResume();
