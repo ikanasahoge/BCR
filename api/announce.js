@@ -23,16 +23,20 @@ export default async function handler(req, res) {
         'X-Title': 'Big City Radio',
       },
       body: JSON.stringify({
-        model: 'google/gemma-3-4b-it:free',
+        model: 'openrouter/free',
         messages: [
           {
             role: 'system',
-            content: 'You are a radio DJ. Respond only with the spoken announcement text. No reasoning, no stage directions, no asterisks, no bullet points. Just the words to say out loud.'
+            content: 'You are a radio DJ named Yorick. Respond ONLY with the spoken announcement text. No thinking, no reasoning, no stage directions, no asterisks, no bullet points, no quotation marks around song titles. Output only the words to say out loud. Keep it to 2-4 sentences maximum.'
           },
           { role: 'user', content: prompt }
         ],
         max_tokens: 220,
         temperature: 0.95,
+        provider: {
+          allow_fallbacks: true,
+          require_parameters: true,
+        },
       }),
     });
 
@@ -43,10 +47,11 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: `OpenRouter API error: ${response.status}` });
     }
 
-    const text = data.choices?.[0]?.message?.content?.trim();
+    const choice = data.choices?.[0];
+    const text = choice?.message?.content?.trim() || null;
 
     if (!text) {
-      console.log('No text in response:', JSON.stringify(data));
+      console.log('No text in response:', JSON.stringify(data).slice(0, 300));
       return res.status(500).json({ error: 'No text in OpenRouter response' });
     }
 
