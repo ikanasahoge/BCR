@@ -30,15 +30,25 @@ export default async function handler(req, res) {
     );
 
     const data = await response.json();
+
+    // Log full response for debugging
+    console.log('Gemini status:', response.status);
+    console.log('Gemini response:', JSON.stringify(data));
+
+    if (!response.ok) {
+      return res.status(500).json({ error: `Gemini API error: ${response.status}`, details: data });
+    }
+
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
 
     if (!text) {
-      return res.status(500).json({ error: 'No response from Gemini' });
+      return res.status(500).json({ error: 'No text in Gemini response', details: data });
     }
 
     res.setHeader('Access-Control-Allow-Origin', '*');
     return res.status(200).json({ text });
   } catch (e) {
-    return res.status(500).json({ error: 'Gemini request failed' });
+    console.log('Gemini fetch error:', e.message);
+    return res.status(500).json({ error: 'Gemini request failed', details: e.message });
   }
 }
