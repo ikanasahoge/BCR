@@ -13,7 +13,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing prompt' });
   }
 
-  try {
+  const makeRequest = async () => {
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
       {
@@ -28,27 +28,35 @@ export default async function handler(req, res) {
         }),
       }
     );
+    return response;
+  };
+
+  try {
+    let response = await makeRequest();
+
+    // If rate limited, wait 3 seconds and try once more
+    if (response.status === 429) {
+      await new Promise(r => setTimeout(r, 3000));
+      response = await makeRequest();
+    }
 
     const data = await response.json();
 
-    // Log full response for debugging
-    console.log('Gemini status:', response.status);
-    console.log('Gemini response:', JSON.stringify(data));
-
     if (!response.ok) {
-      return res.status(500).json({ error: `Gemini API error: ${response.status}`, details: data });
+      console.log('Gemini error:', response.status, JSON.stringify(data));
+      return res.status(500).json({ error: `Gemini API error: ${response.status}` });
     }
 
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
 
     if (!text) {
-      return res.status(500).json({ error: 'No text in Gemini response', details: data });
+      return res.status(500).json({ error: 'No text in Gemini response' });
     }
 
     res.setHeader('Access-Control-Allow-Origin', '*');
     return res.status(200).json({ text });
   } catch (e) {
     console.log('Gemini fetch error:', e.message);
-    return res.status(500).json({ error: 'Gemini request failed', details: e.message });
+    return res.status(500).json({ error: 'Gemini request failed' });
   }
 }
