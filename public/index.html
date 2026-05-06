@@ -848,6 +848,49 @@ async function generateAnnouncement(track) {
 }
 
 function speakText(text) {
+  return new Promise(async resolve => {
+    try {
+      const res = await fetch('/api/speak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
+
+      if (!res.ok) {
+        console.log('BCR: ElevenLabs speak failed, falling back to browser TTS');
+        await browserSpeak(text);
+        resolve();
+        return;
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audio.volume = parseFloat(document.getElementById('voiceVolume').value);
+
+      audio.onended = () => {
+        URL.revokeObjectURL(url);
+        setDJSpeaking(false);
+        document.getElementById('announcementText').classList.remove('typing');
+        resolve();
+      };
+      audio.onerror = async () => {
+        URL.revokeObjectURL(url);
+        await browserSpeak(text);
+        resolve();
+      };
+
+      audio.play();
+    } catch(e) {
+      console.log('BCR: speak error, falling back:', e.message);
+      await browserSpeak(text);
+      resolve();
+    }
+  });
+}
+
+// Fallback browser TTS in case ElevenLabs fails
+function browserSpeak(text) {
   return new Promise(resolve => {
     if (!('speechSynthesis' in window)) { setDJSpeaking(false); resolve(); return; }
     window.speechSynthesis.cancel();
@@ -855,7 +898,6 @@ function speakText(text) {
     utter.rate = 0.95;
     utter.pitch = 0.88;
     utter.volume = parseFloat(document.getElementById('voiceVolume').value);
-
     const voices = window.speechSynthesis.getVoices();
     const preferred = voices.find(v =>
       v.lang.startsWith('en') &&
@@ -863,12 +905,7 @@ function speakText(text) {
        v.name.includes('Alex') || v.name.includes('Male') || v.name.includes('Guy'))
     ) || voices.find(v => v.lang.startsWith('en-'));
     if (preferred) utter.voice = preferred;
-
-    utter.onend = () => {
-      setDJSpeaking(false);
-      document.getElementById('announcementText').classList.remove('typing');
-      resolve();
-    };
+    utter.onend = () => { setDJSpeaking(false); resolve(); };
     utter.onerror = () => { setDJSpeaking(false); resolve(); };
     window.speechSynthesis.speak(utter);
   });
