@@ -23,7 +23,7 @@ export default async function handler(req, res) {
         'X-Title': 'Big City Radio',
       },
       body: JSON.stringify({
-        model: 'mistralai/mistral-7b-instruct:free',
+        model: 'meta-llama/llama-3.2-3b-instruct:free',
         messages: [{ role: 'user', content: prompt }],
         max_tokens: 220,
         temperature: 0.95,
