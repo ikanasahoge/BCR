@@ -663,14 +663,35 @@ async function pollNowPlaying() {
 
     fetchQueue();
 
+// Short segments play over music, long segments pause Spotify
+const SHORT_SEGMENTS = ['vibe_set', 'artist_comment', 'callback'];
+const LONG_SEGMENTS  = ['song_intro', 'city_moment', 'next_song_tease', 'station_id', 'time_of_day'];
+
+// Only announce every 3-4 songs
+let songsSinceAnnouncement = 0;
+let nextAnnouncementThreshold = 3 + Math.floor(Math.random() * 2); // 3 or 4
+
     if (track.id !== lastTrackId) {
       lastTrackId = track.id;
       if (lastAnnouncedTrackId !== track.id) {
         lastAnnouncedTrackId = track.id;
-        setTimeout(async () => {
-          await maybePlayJingle();
-          generateAnnouncement(track);
-        }, 900);
+        songsSinceAnnouncement++;
+
+        const shouldAnnounce = songsSinceAnnouncement >= nextAnnouncementThreshold;
+
+        if (shouldAnnounce) {
+          songsSinceAnnouncement = 0;
+          nextAnnouncementThreshold = 3 + Math.floor(Math.random() * 2);
+
+          // Pause immediately, play jingle if due, then Yorick, then resume
+          setTimeout(async () => {
+            await spotifyPause();
+            await new Promise(r => setTimeout(r, 400));
+            await maybePlayJingle();
+            await generateAnnouncement(track);
+            await spotifyResume();
+          }, 800);
+        }
       }
     }
   } catch(e) {
@@ -721,8 +742,12 @@ async function spotifyResume() {
   }).catch(() => {});
 }
 
-function triggerAnnouncement() {
-  if (currentTrack) generateAnnouncement(currentTrack);
+async function triggerAnnouncement() {
+  if (!currentTrack) return;
+  await spotifyPause();
+  await new Promise(r => setTimeout(r, 400));
+  await generateAnnouncement(currentTrack);
+  await spotifyResume();
 }
 
 // ── AI Announcement ────────────────────────────────────────────────
@@ -734,6 +759,7 @@ async function generateAnnouncement(track) {
   const next = nextTrackData;
   const timeCtx = getTimeContext();
   const segmentType = pickSegmentType(!!next);
+  const isLong = LONG_SEGMENTS.includes(segmentType);
 
   const historyNote = recentAnnouncements.length > 0
     ? `Your last ${recentAnnouncements.length} announcement(s) were:\n${recentAnnouncements.map((a, i) => `${i + 1}. "${a}"`).join('\n')}\nDo NOT repeat similar phrasing, openers, or ideas from any of these.`
@@ -750,12 +776,19 @@ async function generateAnnouncement(track) {
     callback:        `Casually reference something from earlier in the session — vague enough it doesn't need context, but feels like Yorick has been paying attention all along.`,
   };
 
+  // Long segments need a smooth handoff back to the music
+  const signOffNote = isLong
+    ? `End with a smooth, natural sign-off that leads back into the music. Something like "Anyway, here's ${track.name} — enjoy." or "Alright, enough from me — here's the next one." or a thematic line that ties into what you just said. Never a hard stop. Make it feel like a real handoff.`
+    : '';
+
   const prompt = `You are Yorick de Boer, host of Big City Radio, 94.7 FM. Late twenties. Did stand-up comedy as a teen, then TV presenting, now radio — and he genuinely loves it here. Quick, warm, occasionally self-deprecating. Always sounds like he's having a good time without trying too hard. Never sounds like he's reading from a script.
 
 Currently playing: ${track.name} by ${track.artists.map(a => a.name).join(', ')}.
 Time of day: ${timeCtx.period}.
 
 YOUR TASK FOR THIS ANNOUNCEMENT: ${segmentInstructions[segmentType]}
+
+${signOffNote}
 
 ${historyNote}
 
@@ -780,16 +813,11 @@ Vary your sentence length. Sometimes a short punchy opener, sometimes he eases i
       recentAnnouncements.push(text);
       if (recentAnnouncements.length > MAX_MEMORY) recentAnnouncements.shift();
       showAnnouncement(text);
-      speakText(text);
+      await speakText(text);
     } else {
-      const fallback = "Big City Radio — keeping the city moving.";
-      showAnnouncement(fallback);
-      speakText(fallback);
+      setDJSpeaking(false);
     }
   } catch(e) {
-    const fallback = "Stay tuned — Big City Radio, 94.7 FM.";
-    showAnnouncement(fallback);
-    speakText(fallback);
     setDJSpeaking(false);
   } finally {
     isGenerating = false;
@@ -797,27 +825,30 @@ Vary your sentence length. Sometimes a short punchy opener, sometimes he eases i
 }
 
 function speakText(text) {
-  if (!('speechSynthesis' in window)) { setDJSpeaking(false); return; }
-  window.speechSynthesis.cancel();
-  const utter = new SpeechSynthesisUtterance(text);
-  utter.rate = 0.95;
-  utter.pitch = 0.88;
-  utter.volume = parseFloat(document.getElementById('voiceVolume').value);
+  return new Promise(resolve => {
+    if (!('speechSynthesis' in window)) { setDJSpeaking(false); resolve(); return; }
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.rate = 0.95;
+    utter.pitch = 0.88;
+    utter.volume = parseFloat(document.getElementById('voiceVolume').value);
 
-  const voices = window.speechSynthesis.getVoices();
-  const preferred = voices.find(v =>
-    v.lang.startsWith('en') &&
-    (v.name.includes('Daniel') || v.name.includes('David') || v.name.includes('Tom') ||
-     v.name.includes('Alex') || v.name.includes('Male') || v.name.includes('Guy'))
-  ) || voices.find(v => v.lang.startsWith('en-'));
-  if (preferred) utter.voice = preferred;
+    const voices = window.speechSynthesis.getVoices();
+    const preferred = voices.find(v =>
+      v.lang.startsWith('en') &&
+      (v.name.includes('Daniel') || v.name.includes('David') || v.name.includes('Tom') ||
+       v.name.includes('Alex') || v.name.includes('Male') || v.name.includes('Guy'))
+    ) || voices.find(v => v.lang.startsWith('en-'));
+    if (preferred) utter.voice = preferred;
 
-  utter.onend = () => {
-    setDJSpeaking(false);
-    document.getElementById('announcementText').classList.remove('typing');
-  };
-  utter.onerror = () => setDJSpeaking(false);
-  window.speechSynthesis.speak(utter);
+    utter.onend = () => {
+      setDJSpeaking(false);
+      document.getElementById('announcementText').classList.remove('typing');
+      resolve();
+    };
+    utter.onerror = () => { setDJSpeaking(false); resolve(); };
+    window.speechSynthesis.speak(utter);
+  });
 }
 
 function skipSpeech() {
