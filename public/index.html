@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Big City Radio — 94.7 FM</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Courier+Prime:ital@0;1&display=swap');
+
+  :root {
+    --bg: #0d0d0f;
+    --surface: #141418;
+    --surface2: #1c1c22;
+    --border: #2a2a35;
+    --accent: #f5c842;
+    --accent2: #e8834a;
+    --text: #e8e8f0;
+    --muted: #6b6b80;
+    --live: #ff4757;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 20% 80%, rgba(245,200,66,0.04) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 50% at 80% 20%, rgba(232,131,74,0.05) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 680px;
+    padding: 24px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .station-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 16px;
+  }
+
+  .station-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 42px;
+    letter-spacing: 3px;
+    color: var(--accent);
+    line-height: 1;
+    text-shadow: 0 0 30px rgba(245,200,66,0.2);
+  }
+
+  .station-freq {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    color: var(--muted);
+    letter-spacing: 2px;
+  }
+
+  .live-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    color: var(--live);
+    text-transform: uppercase;
+  }
+
+  .live-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--live);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  /* Setup */
+  .setup-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 32px;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+
+  .setup-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 24px;
+    letter-spacing: 2px;
+    color: var(--accent);
+    margin-bottom: 10px;
+  }
+
+  .setup-desc {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 28px;
+    line-height: 1.7;
+    max-width: 420px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* Now playing */
+  .now-playing-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 24px;
+    margin-bottom: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .now-playing-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--accent);
+  }
+
+  .np-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  .np-track {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    letter-spacing: 1px;
+    color: var(--text);
+    line-height: 1.1;
+    margin-bottom: 4px;
+  }
+
+  .np-artist {
+    font-size: 14px;
+    color: var(--accent2);
+    font-weight: 300;
+  }
+
+  .progress-bar {
+    margin-top: 18px;
+    height: 2px;
+    background: var(--border);
+    border-radius: 1px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 1px;
+    width: 0%;
+  }
+
+  .time-row {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'Courier Prime', monospace;
+  }
+
+  /* Announcement */
+  .announcement-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+    min-height: 90px;
+  }
+
+  .dj-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .dj-speaking { display: flex; gap: 3px; align-items: center; height: 12px; }
+  .dj-speaking span {
+    display: block; width: 3px;
+    background: var(--accent);
+    border-radius: 2px;
+    animation: wave 0.8s ease-in-out infinite;
+  }
+  .dj-speaking span:nth-child(1) { height: 6px; animation-delay: 0s; }
+  .dj-speaking span:nth-child(2) { height: 10px; animation-delay: 0.1s; }
+  .dj-speaking span:nth-child(3) { height: 8px; animation-delay: 0.2s; }
+  .dj-speaking span:nth-child(4) { height: 12px; animation-delay: 0.3s; }
+  .dj-speaking span:nth-child(5) { height: 6px; animation-delay: 0.4s; }
+
+  @keyframes wave {
+    0%, 100% { transform: scaleY(1); }
+    50% { transform: scaleY(0.4); }
+  }
+
+  .dj-speaking.hidden { display: none; }
+
+  .announcement-text {
+    font-family: 'Courier Prime', monospace;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text);
+    font-style: italic;
+    min-height: 48px;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+  }
+
+  .announcement-text.visible { opacity: 1; }
+  .announcement-text.typing::after {
+    content: '▋';
+    animation: blink 0.7s step-end infinite;
+    color: var(--accent);
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  /* Next up */
+  .next-card {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 14px 24px;
+    margin-bottom: 20px;
+  }
+
+  .next-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  .next-track { font-size: 14px; font-weight: 500; color: var(--text); }
+  .next-artist { font-size: 12px; color: var(--muted); }
+
+  /* Controls */
+  .controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+
+  .btn {
+    padding: 10px 22px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: transparent;
+    color: var(--muted);
+    text-decoration: none;
+    display: inline-block;
+  }
+
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .btn-primary {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+    font-weight: 600;
+    font-size: 13px;
+    padding: 12px 32px;
+  }
+  .btn-primary:hover { background: #f0bb20; color: var(--bg); border-color: #f0bb20; }
+
+  .btn-danger { border-color: var(--live); color: var(--live); }
+  .btn-danger:hover { background: rgba(255,71,87,0.1); }
+
+  /* Status */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 16px;
+    font-family: 'Courier Prime', monospace;
+  }
+
+  .status-indicator {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+  }
+  .status-indicator.ok { background: #2ed573; }
+  .status-indicator.warn { background: var(--accent); }
+  .status-indicator.err { background: var(--live); }
+
+  /* Voice */
+  .voice-row { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+  .voice-label { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 80px; height: 2px;
+    background: var(--border);
+    outline: none; border-radius: 1px;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+  }
+
+  /* Ticker */
+  .ticker-wrap {
+    overflow: hidden;
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+    margin-top: 4px;
+  }
+
+  .ticker {
+    display: inline-block;
+    white-space: nowrap;
+    font-family: 'Courier Prime', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    animation: ticker 30s linear infinite;
+  }
+
+  @keyframes ticker {
+    0% { transform: translateX(100vw); }
+    100% { transform: translateX(-100%); }
+  }
+
+  .ticker-sep { color: var(--accent); margin: 0 16px; }
+  .hidden { display: none !important; }
+
+  .error-msg {
+    background: rgba(255,71,87,0.1);
+    border: 1px solid var(--live);
+    border-radius: 2px;
+    padding: 12px 16px;
+    font-size: 12px;
+    color: var(--live);
+    margin-bottom: 16px;
+    font-family: 'Courier Prime', monospace;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="station-header">
+    <div>
+      <div class="station-name">Big City Radio</div>
+      <div class="station-freq">94.7 FM — YORICK DE BOER</div>
+    </div>
+    <div class="live-badge">
+      <div class="live-dot"></div>
+      ON AIR
+    </div>
+  </div>
+
+  <div id="errorMsg" class="error-msg hidden"></div>
+
+  <!-- Setup -->
+  <div class="setup-panel" id="setupPanel">
+    <div class="setup-title">Tune In</div>
+    <div class="setup-desc">
+      Connect your Spotify account to start the broadcast.<br>
+      Yorick's waiting in the booth.
+    </div>
+    <a class="btn btn-primary" href="/api/login">Connect Spotify</a>
+  </div>
+
+  <!-- Radio UI -->
+  <div id="radioUI" class="hidden">
+
+    <div class="now-playing-card">
+      <div class="np-label">Now Playing</div>
+      <div class="np-track" id="trackName">—</div>
+      <div class="np-artist" id="artistName">Waiting for track...</div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <div class="time-row">
+        <span id="timeElapsed">0:00</span>
+        <span id="timeDuration">0:00</span>
+      </div>
+    </div>
+
+    <div class="announcement-card">
+      <div class="dj-label">
+        Yorick de Boer
+        <div class="dj-speaking hidden" id="djSpeaking">
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+      <div class="announcement-text" id="announcementText">Tuning in to Big City Radio...</div>
+    </div>
+
+    <div class="next-card">
+      <div class="next-label">Up Next</div>
+      <div class="next-track" id="nextTrack">—</div>
+      <div class="next-artist" id="nextArtist"></div>
+    </div>
+
+    <div class="controls">
+      <button class="btn btn-primary" onclick="triggerAnnouncement()">Announce Next Song</button>
+      <button class="btn" onclick="skipSpeech()">Skip Voice</button>
+      <button class="btn btn-danger" onclick="disconnect()">Disconnect</button>
+      <div class="voice-row">
+        <span class="voice-label">Voice</span>
+        <input type="range" id="voiceVolume" min="0" max="1" step="0.05" value="0.85">
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <div class="status-indicator ok" id="statusDot"></div>
+      <span id="statusText">Connected</span>
+    </div>
+  </div>
+
+  <div class="ticker-wrap">
+    <span class="ticker">
+      BIG CITY RADIO 94.7 FM
+      <span class="ticker-sep">◆</span>
+      YOUR CITY, YOUR SOUND
+      <span class="ticker-sep">◆</span>
+      HOSTED BY YORICK DE BOER
+      <span class="ticker-sep">◆</span>
+      TUNE IN EVERY DAY
+      <span class="ticker-sep">◆</span>
+      BIG CITY RADIO 94.7 FM
+      <span class="ticker-sep">◆</span>
+      REQUESTS OPEN
+      <span class="ticker-sep">◆</span>
+    </span>
+  </div>
+
+</div>
+<script>
+// ── State ──────────────────────────────────────────────────────────
+let accessToken = null;
+let pollInterval = null;
+let smoothInterval = null;
+let lastTrackId = null;
+let lastAnnouncedTrackId = null;
+let currentTrack = null;
+let nextTrackData = null;
+let progressMs = 0;
+let lastPollTime = 0;
+
+// Yorick's memory — keeps recent lines so he never repeats himself
+const recentAnnouncements = [];
+const MAX_MEMORY = 6;
+
+// Segment rotation — forces variety by tracking what type was used recently
+const segmentHistory = [];
+const SEGMENT_TYPES = [
+  'song_intro',      // introduce the current song naturally
+  'vibe_set',        // set the mood without mentioning the song at all
+  'artist_comment',  // say something about the artist
+  'city_moment',     // Big City slice of life observation
+  'next_song_tease', // tease the upcoming track
+  'station_id',      // drop the station name naturally
+  'time_of_day',     // react to morning/afternoon/evening energy
+  'callback',        // vaguely reference something from earlier in the session
+];
+
+function getTimeContext() {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 9)   return { period: 'early morning', energy: 'gentle wake-up energy, warm and unhurried' };
+  if (h >= 9 && h < 12)  return { period: 'morning', energy: 'bright and energetic, the city is getting going' };
+  if (h >= 12 && h < 14) return { period: 'midday', energy: 'upbeat lunch hour, breezy and light' };
+  if (h >= 14 && h < 17) return { period: 'afternoon', energy: 'cruising, laid-back afternoon flow' };
+  if (h >= 17 && h < 20) return { period: 'evening rush', energy: 'winding down from the day, warm and reflective' };
+  if (h >= 20 && h < 23) return { period: 'evening', energy: 'relaxed night mode, smooth and easy' };
+  return { period: 'late night', energy: 'quiet city hours, intimate and unhurried' };
+}
+
+function pickSegmentType(hasNextTrack) {
+  const available = SEGMENT_TYPES.filter(t => {
+    if (t === 'next_song_tease' && !hasNextTrack) return false;
+    if (t === 'callback' && recentAnnouncements.length < 2) return false;
+    return !segmentHistory.slice(-3).includes(t);
+  });
+  const pick = available[Math.floor(Math.random() * available.length)];
+  segmentHistory.push(pick);
+  if (segmentHistory.length > 10) segmentHistory.shift();
+  return pick;
+}
+
+// Dummy WEATHER_LINES kept for reference but not used directly anymore
+const WEATHER_LINES = [
+  "Looks like it's gonna be a clear one out there today, Big City.",
+  "Got word from downtown — mild breeze, perfect weather for an open window.",
+  "Skies are holding up. Good day to be alive in the city.",
+  "A little overcast this afternoon — nothing wrong with a cozy one.",
+  "Word is rain's rolling in tonight, so enjoy the dry while it lasts.",
+  "Sunny with a side of gorgeous out there. Classic Big City.",
+  "Bit of a chill in the air this morning. Good excuse to stay in with the radio on.",
+];
+
+// Jingle state
+const jingle = new Audio('/BCR-Jingle.mp3');
+let songsSinceJingle = 0;
+const JINGLE_EVERY = 4; // play roughly every 4 songs, with some randomness
+
+async function maybePlayJingle() {
+  songsSinceJingle++;
+  // Play every 3-5 songs randomly
+  const threshold = JINGLE_EVERY + Math.floor(Math.random() * 3) - 1;
+  if (songsSinceJingle < threshold) return;
+  songsSinceJingle = 0;
+
+  await spotifyPause();
+  await new Promise(resolve => setTimeout(resolve, 400)); // brief gap
+
+  return new Promise(resolve => {
+    jingle.volume = 0.9;
+    jingle.currentTime = 0;
+    jingle.play().catch(() => {});
+    jingle.onended = async () => {
+      await new Promise(r => setTimeout(r, 300));
+      await spotifyResume();
+      resolve();
+    };
+    jingle.onerror = async () => {
+      await spotifyResume();
+      resolve();
+    };
+  });
+}
+
+// ── Init ───────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('access_token');
+  const error = params.get('error');
+
+  if (error) {
+    showError('Spotify login failed: ' + error + '. Please try again.');
+    history.replaceState(null, '', '/');
+    return;
+  }
+
+  if (token) {
+    accessToken = token;
+    history.replaceState(null, '', '/');
+    startRadio();
+    return;
+  }
+
+  const saved = sessionStorage.getItem('bcr_token');
+  if (saved) {
+    accessToken = saved;
+    startRadio();
+  }
+});
+
+function startRadio() {
+  sessionStorage.setItem('bcr_token', accessToken);
+  document.getElementById('setupPanel').classList.add('hidden');
+  document.getElementById('radioUI').classList.remove('hidden');
+  setStatus('ok', 'Connected — tuning in...');
+  pollNowPlaying();
+  pollInterval = setInterval(pollNowPlaying, 5000);
+  smoothInterval = setInterval(tickProgress, 500);
+}
+
+function disconnect() {
+  clearInterval(pollInterval);
+  clearInterval(smoothInterval);
+  sessionStorage.removeItem('bcr_token');
+  accessToken = null;
+  lastTrackId = null;
+  lastAnnouncedTrackId = null;
+  currentTrack = null;
+  document.getElementById('radioUI').classList.add('hidden');
+  document.getElementById('setupPanel').classList.remove('hidden');
+}
+
+async function pollNowPlaying() {
+  if (!accessToken) return;
+  try {
+    const res = await fetch('https://api.spotify.com/v1/me/player', {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+
+    if (res.status === 204) { setStatus('warn', 'Nothing playing right now.'); return; }
+    if (res.status === 401) {
+      setStatus('err', 'Session expired — please reconnect.');
+      clearInterval(pollInterval); clearInterval(smoothInterval);
+      setTimeout(() => disconnect(), 2000);
+      return;
+    }
+    if (!res.ok) { setStatus('err', 'Spotify error ' + res.status); return; }
+
+    const data = await res.json();
+    if (!data || !data.item) return;
+
+    const track = data.item;
+    progressMs = data.progress_ms || 0;
+    lastPollTime = Date.now();
+    currentTrack = track;
+
+    document.getElementById('trackName').textContent = track.name;
+    document.getElementById('artistName').textContent = track.artists.map(a => a.name).join(', ');
+    document.getElementById('timeDuration').textContent = msToTime(track.duration_ms);
+    setStatus('ok', 'Live');
+
+    fetchQueue();
+
+    if (track.id !== lastTrackId) {
+      lastTrackId = track.id;
+      if (lastAnnouncedTrackId !== track.id) {
+        lastAnnouncedTrackId = track.id;
+        setTimeout(async () => {
+          await maybePlayJingle();
+          generateAnnouncement(track);
+        }, 900);
+      }
+    }
+  } catch(e) {
+    setStatus('err', 'Could not reach Spotify.');
+  }
+}
+
+function tickProgress() {
+  if (!currentTrack || !lastPollTime) return;
+  const elapsed = progressMs + (Date.now() - lastPollTime);
+  const pct = Math.min((elapsed / currentTrack.duration_ms) * 100, 100);
+  document.getElementById('progressFill').style.width = pct.toFixed(2) + '%';
+  document.getElementById('timeElapsed').textContent = msToTime(elapsed);
+}
+
+async function fetchQueue() {
+  try {
+    const res = await fetch('https://api.spotify.com/v1/me/player/queue', {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const next = data.queue && data.queue[0];
+    if (next) {
+      nextTrackData = next;
+      document.getElementById('nextTrack').textContent = next.name;
+      document.getElementById('nextArtist').textContent = next.artists.map(a => a.name).join(', ');
+    } else {
+      nextTrackData = null;
+      document.getElementById('nextTrack').textContent = '—';
+      document.getElementById('nextArtist').textContent = '';
+    }
+  } catch(e) {}
+}
+
+// Spotify playback control (Premium required)
+async function spotifyPause() {
+  if (!accessToken) return;
+  await fetch('https://api.spotify.com/v1/me/player/pause', {
+    method: 'PUT', headers: { Authorization: `Bearer ${accessToken}` }
+  }).catch(() => {});
+}
+
+async function spotifyResume() {
+  if (!accessToken) return;
+  await fetch('https://api.spotify.com/v1/me/player/play', {
+    method: 'PUT', headers: { Authorization: `Bearer ${accessToken}` }
+  }).catch(() => {});
+}
+
+function triggerAnnouncement() {
+  if (currentTrack) generateAnnouncement(currentTrack);
+}
+
+// ── AI Announcement ────────────────────────────────────────────────
+async function generateAnnouncement(track) {
+  const next = nextTrackData;
+  const timeCtx = getTimeContext();
+  const segmentType = pickSegmentType(!!next);
+
+  const historyNote = recentAnnouncements.length > 0
+    ? `Your last ${recentAnnouncements.length} announcement(s) were:\n${recentAnnouncements.map((a, i) => `${i + 1}. "${a}"`).join('\n')}\nDo NOT repeat similar phrasing, openers, or ideas from any of these.`
+    : '';
+
+  const segmentInstructions = {
+    song_intro:      `Introduce the current song naturally. You can mention the title, the artist, or both — or just hint at the vibe. Not a tracklist readout.`,
+    vibe_set:        `Don't mention the song title or artist at all. Just paint a mood or feeling that fits the music. Make the listener feel something.`,
+    artist_comment:  `Say something warm, interesting, or lightly witty about the artist. Could be their sound, their energy, a vague impression — not a Wikipedia entry.`,
+    city_moment:     `Do a quick Big City slice-of-life. Could be something happening outside, something Yorick noticed, a little observation about city living. Real and grounded.`,
+    next_song_tease: `Briefly tease what's coming up next: ${next?.name} by ${next?.artists?.map(a=>a.name).join(', ')}. Build a little anticipation without overselling it.`,
+    station_id:      `Naturally work in the station name — Big City Radio, 94.7 FM. Don't make it sound like a legal requirement. Make it feel like home.`,
+    time_of_day:     `React to the time of day — it's ${timeCtx.period}, ${timeCtx.energy}. Let that colour the whole announcement naturally.`,
+    callback:        `Casually reference something from earlier in the session — vague enough it doesn't need context, but feels like Yorick has been paying attention all along.`,
+  };
+
+  const prompt = `You are Yorick de Boer, host of Big City Radio, 94.7 FM. Late twenties. Did stand-up comedy as a teen, then TV presenting, now radio — and he genuinely loves it here. Quick, warm, occasionally self-deprecating. Always sounds like he's having a good time without trying too hard. Never sounds like he's reading from a script.
+
+Currently playing: ${track.name} by ${track.artists.map(a => a.name).join(', ')}.
+Time of day: ${timeCtx.period}.
+
+YOUR TASK FOR THIS ANNOUNCEMENT: ${segmentInstructions[segmentType]}
+
+${historyNote}
+
+Write 2–4 sentences in Yorick's spoken voice. Natural rhythm, no bullet points, no stage directions, no asterisks, no quotation marks around song titles. Just what he'd say into the mic.
+
+Vary your sentence length. Sometimes a short punchy opener, sometimes he eases in slowly. His comedy background means he occasionally lands a dry one-liner — but only when it comes naturally, never forced.`;
+
+  setDJSpeaking(true);
+  showAnnouncement('', true);
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'anthropic-dangerous-client-side-api-key-flag': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 220,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await res.json();
+    const text = data.content?.[0]?.text?.trim();
+
+    if (text) {
+      recentAnnouncements.push(text);
+      if (recentAnnouncements.length > MAX_MEMORY) recentAnnouncements.shift();
+      showAnnouncement(text);
+      speakText(text);
+    } else {
+      const fallback = "Big City Radio — keeping the city moving.";
+      showAnnouncement(fallback);
+      speakText(fallback);
+    }
+  } catch(e) {
+    const fallback = "Stay tuned — Big City Radio, 94.7 FM.";
+    showAnnouncement(fallback);
+    speakText(fallback);
+    setDJSpeaking(false);
+  }
+}
+
+function speakText(text) {
+  if (!('speechSynthesis' in window)) { setDJSpeaking(false); return; }
+  window.speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.rate = 0.95;
+  utter.pitch = 0.88;
+  utter.volume = parseFloat(document.getElementById('voiceVolume').value);
+
+  const voices = window.speechSynthesis.getVoices();
+  const preferred = voices.find(v =>
+    v.lang.startsWith('en') &&
+    (v.name.includes('Daniel') || v.name.includes('David') || v.name.includes('Tom') ||
+     v.name.includes('Alex') || v.name.includes('Male') || v.name.includes('Guy'))
+  ) || voices.find(v => v.lang.startsWith('en-'));
+  if (preferred) utter.voice = preferred;
+
+  utter.onend = () => {
+    setDJSpeaking(false);
+    document.getElementById('announcementText').classList.remove('typing');
+  };
+  utter.onerror = () => setDJSpeaking(false);
+  window.speechSynthesis.speak(utter);
+}
+
+function skipSpeech() {
+  window.speechSynthesis && window.speechSynthesis.cancel();
+  setDJSpeaking(false);
+}
+
+function showAnnouncement(text, loading = false) {
+  const el = document.getElementById('announcementText');
+  el.classList.remove('visible', 'typing');
+  el.textContent = text;
+  if (loading) {
+    el.classList.add('visible', 'typing');
+  } else {
+    requestAnimationFrame(() => el.classList.add('visible'));
+  }
+}
+
+function setDJSpeaking(on) {
+  document.getElementById('djSpeaking').classList.toggle('hidden', !on);
+}
+
+function setStatus(type, msg) {
+  document.getElementById('statusDot').className = 'status-indicator ' + type;
+  document.getElementById('statusText').textContent = msg;
+}
+
+function showError(msg) {
+  const el = document.getElementById('errorMsg');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
+function msToTime(ms) {
+  const s = Math.floor((ms || 0) / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+</script>
+</body>
+</html>
