@@ -682,15 +682,8 @@ let nextAnnouncementThreshold = 3 + Math.floor(Math.random() * 2); // 3 or 4
         if (shouldAnnounce) {
           songsSinceAnnouncement = 0;
           nextAnnouncementThreshold = 3 + Math.floor(Math.random() * 2);
-
-          // Pause immediately, play jingle if due, then Yorick, then resume
-          setTimeout(async () => {
-            await spotifyPause();
-            await new Promise(r => setTimeout(r, 400));
-            await maybePlayJingle();
-            await generateAnnouncement(track);
-            await spotifyResume();
-          }, 800);
+          // Small delay then trigger — jingle and announcement handle their own pause/resume
+          setTimeout(() => runSegment(track), 800);
         }
       }
     }
@@ -744,18 +737,41 @@ async function spotifyResume() {
 
 async function triggerAnnouncement() {
   if (!currentTrack) return;
+  runSegment(currentTrack);
+}
+
+// Generate text first, then pause Spotify to speak
+async function runSegment(track) {
+  if (isGenerating) return;
+
+  // Play jingle first if due (it handles its own pause/resume)
+  await maybePlayJingle();
+
+  // Generate the announcement text silently
+  const text = await fetchAnnouncement(track);
+  if (!text) return;
+
+  // Now pause Spotify, speak, resume
   await spotifyPause();
+  await new Promise(r => setTimeout(r, 300));
+
+  recentAnnouncements.push(text);
+  if (recentAnnouncements.length > MAX_MEMORY) recentAnnouncements.shift();
+  showAnnouncement(text);
+  setDJSpeaking(true);
+  await speakText(text);
+
   await new Promise(r => setTimeout(r, 400));
-  await generateAnnouncement(currentTrack);
   await spotifyResume();
 }
 
 // ── AI Announcement ────────────────────────────────────────────────
 let isGenerating = false;
 
-async function generateAnnouncement(track) {
-  if (isGenerating) return;
+async function fetchAnnouncement(track) {
+  if (isGenerating) return null;
   isGenerating = true;
+
   const next = nextTrackData;
   const timeCtx = getTimeContext();
   const segmentType = pickSegmentType(!!next);
@@ -776,9 +792,8 @@ async function generateAnnouncement(track) {
     callback:        `Casually reference something from earlier in the session — vague enough it doesn't need context, but feels like Yorick has been paying attention all along.`,
   };
 
-  // Long segments need a smooth handoff back to the music
   const signOffNote = isLong
-    ? `End with a smooth, natural sign-off that leads back into the music. Something like "Anyway, here's ${track.name} — enjoy." or "Alright, enough from me — here's the next one." or a thematic line that ties into what you just said. Never a hard stop. Make it feel like a real handoff.`
+    ? `End with a smooth, natural sign-off that leads back into the music. Something like "Anyway, here's ${track.name} — enjoy." or "Alright, enough from me — here's the next one." or a thematic line that ties into what you just said. Never a hard stop.`
     : '';
 
   const prompt = `You are Yorick de Boer, host of Big City Radio, 94.7 FM. Late twenties. Did stand-up comedy as a teen, then TV presenting, now radio — and he genuinely loves it here. Quick, warm, occasionally self-deprecating. Always sounds like he's having a good time without trying too hard. Never sounds like he's reading from a script.
@@ -796,7 +811,6 @@ Write 2–4 sentences in Yorick's spoken voice. Natural rhythm, no bullet points
 
 Vary your sentence length. Sometimes a short punchy opener, sometimes he eases in slowly. His comedy background means he occasionally lands a dry one-liner — but only when it comes naturally, never forced.`;
 
-  setDJSpeaking(true);
   showAnnouncement('', true);
 
   try {
@@ -805,22 +819,24 @@ Vary your sentence length. Sometimes a short punchy opener, sometimes he eases i
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt })
     });
-
     const data = await res.json();
-    const text = data.text;
-
-    if (text) {
-      recentAnnouncements.push(text);
-      if (recentAnnouncements.length > MAX_MEMORY) recentAnnouncements.shift();
-      showAnnouncement(text);
-      await speakText(text);
-    } else {
-      setDJSpeaking(false);
-    }
+    return data.text || null;
   } catch(e) {
-    setDJSpeaking(false);
+    return null;
   } finally {
     isGenerating = false;
+  }
+}
+
+// Keep generateAnnouncement as a convenience wrapper (used nowhere now but kept for safety)
+async function generateAnnouncement(track) {
+  const text = await fetchAnnouncement(track);
+  if (text) {
+    recentAnnouncements.push(text);
+    if (recentAnnouncements.length > MAX_MEMORY) recentAnnouncements.shift();
+    showAnnouncement(text);
+    setDJSpeaking(true);
+    await speakText(text);
   }
 }
 
